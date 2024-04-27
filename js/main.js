@@ -1,8 +1,39 @@
-// Datos de ejemplo
-var libros = [
-    { titulo: "El señor de los anillos", autor: "J.R.R. Tolkien", descripcion: "Fantasía épica", archivo_pdf: "el_senor_de_los_anillos.pdf" },
-    { titulo: "Cien años de soledad", autor: "Gabriel García Márquez", descripcion: "Realismo mágico", archivo_pdf: "cien_anios_de_soledad.pdf" }
-];
+// Iniciar la variable libros desde el almacenamiento local o como un arreglo vacío si no hay datos guardados
+var libros = JSON.parse(localStorage.getItem('libros')) || [];
+
+// Función para guardar los libros en el almacenamiento local
+function guardarLibrosEnLocalStorage() {
+    localStorage.setItem('libros', JSON.stringify(libros));
+}
+
+// Función para agregar un nuevo libro al catálogo
+function agregarLibro(titulo, autor, descripcion, archivoPDF) {
+    var nuevoLibro = { 
+        titulo: titulo, 
+        autor: autor, 
+        descripcion: descripcion, 
+        archivo_pdf: archivoPDF ? archivoPDF.name : "" 
+    };
+    libros.push(nuevoLibro);
+
+    // Guardar los libros en el almacenamiento local
+    guardarLibrosEnLocalStorage();
+}
+
+
+// Función para cargar los libros desde el almacenamiento local al iniciar la aplicación
+function cargarLibrosDesdeLocalStorage() {
+    var librosGuardados = localStorage.getItem('libros');
+    if (librosGuardados) {
+        libros = JSON.parse(librosGuardados);
+        //mostrarLibros();
+    }
+}
+
+// Función para guardar los libros en el almacenamiento local
+function guardarLibrosEnLocalStorage() {
+    localStorage.setItem('libros', JSON.stringify(libros));
+}
 
 // Función para buscar libros
 function buscarLibro() {
@@ -31,8 +62,12 @@ document.getElementById("nuevoLibroForm").addEventListener("submit", function(ev
     var descripcion = document.getElementById("descripcion").value;
     var archivoPDF = document.getElementById("archivoPDF").files[0];
 
-    var nuevoLibro = { titulo: titulo, autor: autor, descripcion: descripcion, archivo_pdf: archivoPDF.name };
+    var nuevoLibro = { titulo: titulo, autor: autor, descripcion: descripcion, archivo_pdf: archivoPDF ? archivoPDF.name : "" };
     libros.push(nuevoLibro);
+
+    
+    // Guardar los libros en el almacenamiento local
+    guardarLibrosEnLocalStorage();
 
     // Actualizar catálogo
     mostrarLibros();
@@ -93,4 +128,8 @@ function mostrarFavoritos() {
     }
 }
 
+// Llamar a la función para cargar los libros desde el almacenamiento local al iniciar la aplicación
+cargarLibrosDesdeLocalStorage();
 
+// Llamar a la función para mostrar los libros favoritos
+mostrarFavoritos();
