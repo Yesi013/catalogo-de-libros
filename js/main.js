@@ -1,135 +1,191 @@
-// Iniciar la variable libros desde el almacenamiento local o como un arreglo vacío si no hay datos guardados
-var libros = JSON.parse(localStorage.getItem('libros')) || [];
+document.addEventListener("DOMContentLoaded", function () {
+    var libros = JSON.parse(localStorage.getItem('libros')) || [];
+    var favoritos = JSON.parse(localStorage.getItem("favoritos")) || [];
 
-// Función para guardar los libros en el almacenamiento local
-function guardarLibrosEnLocalStorage() {
-    localStorage.setItem('libros', JSON.stringify(libros));
-}
-
-// Función para agregar un nuevo libro al catálogo
-function agregarLibro(titulo, autor, descripcion, archivoPDF) {
-    var nuevoLibro = { 
-        titulo: titulo, 
-        autor: autor, 
-        descripcion: descripcion, 
-        archivo_pdf: archivoPDF ? archivoPDF.name : "" 
-    };
-    libros.push(nuevoLibro);
-
-    // Guardar los libros en el almacenamiento local
-    guardarLibrosEnLocalStorage();
-}
-
-
-// Función para cargar los libros desde el almacenamiento local al iniciar la aplicación
-function cargarLibrosDesdeLocalStorage() {
-    var librosGuardados = localStorage.getItem('libros');
-    if (librosGuardados) {
-        libros = JSON.parse(librosGuardados);
-        //mostrarLibros();
+    function guardarLibrosEnLocalStorage() {
+        localStorage.setItem('libros', JSON.stringify(libros));
     }
-}
 
-// Función para guardar los libros en el almacenamiento local
-function guardarLibrosEnLocalStorage() {
-    localStorage.setItem('libros', JSON.stringify(libros));
-}
+    function agregarLibro(titulo, autor, descripcion, archivoPDF) {
+        var nuevoLibro = {
+            titulo: titulo,
+            autor: autor,
+            descripcion: descripcion,
+            archivo_pdf: archivoPDF ? archivoPDF.name : ""
+        };
+        libros.push(nuevoLibro);
+        guardarLibrosEnLocalStorage();
+    }
 
-// Función para buscar libros
-function buscarLibro() {
-    var input = document.getElementById("searchInput").value.toLowerCase();
-    var resultadosDiv = document.getElementById("resultados");
-    resultadosDiv.innerHTML = "";
-
-    for (var i = 0; i < libros.length; i++) {
-        var titulo = libros[i].titulo.toLowerCase();
-        if (titulo.includes(input)) {
-            var libroDiv = document.createElement("div");
-            libroDiv.innerHTML = "<h3>" + libros[i].titulo + "</h3>" +
-                                "<p>Autor: " + libros[i].autor + "</p>" +
-                                "<p>Descripción: " + libros[i].descripcion + "</p>" +
-                                "<button onclick='agregarFavorito(" + i + ")'>Agregar a favoritos</button>";
-            resultadosDiv.appendChild(libroDiv);
+    function cargarLibrosDesdeLocalStorage() {
+        var librosGuardados = localStorage.getItem('libros');
+        if (librosGuardados) {
+            libros = JSON.parse(librosGuardados);
         }
     }
-}
 
-// Función para agregar un nuevo libro al catálogo
-document.getElementById("nuevoLibroForm").addEventListener("submit", function(event) {
-    event.preventDefault();
-    var titulo = document.getElementById("titulo").value;
-    var autor = document.getElementById("autor").value;
-    var descripcion = document.getElementById("descripcion").value;
-    var archivoPDF = document.getElementById("archivoPDF").files[0];
+    function eliminarFavorito(index) {
+        var favoritos = JSON.parse(localStorage.getItem("favoritos")) || [];
+        favoritos.splice(index, 1);
+        localStorage.setItem("favoritos", JSON.stringify(favoritos));
+        mostrarFavoritos();
+    }
 
-    var nuevoLibro = { titulo: titulo, autor: autor, descripcion: descripcion, archivo_pdf: archivoPDF ? archivoPDF.name : "" };
-    libros.push(nuevoLibro);
+    function buscarLibro() {
+        var input = document.getElementById("searchInput").value.toLowerCase();
+        var resultadosDiv = document.getElementById("resultados");
+        resultadosDiv.innerHTML = "";
 
-    
-    // Guardar los libros en el almacenamiento local
-    guardarLibrosEnLocalStorage();
+        var url = "https://openlibrary.org/search.json?q=" + encodeURIComponent(input);
 
-    // Actualizar catálogo
-    mostrarLibros();
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                mostrarResultados(data);
+            })
+            .catch(error => {
+                console.error('Error al buscar libros:', error);
+            });
+    }
 
-    // Subir archivo PDF
-    subirPDF(archivoPDF);
+    function mostrarResultados(data) {
+        var resultadosDiv = document.getElementById("resultados");
+        resultadosDiv.innerHTML = "";
 
-    document.getElementById("nuevoLibroForm").reset();
+        if (data.docs && data.docs.length > 0) {
+            data.docs.forEach(doc => {
+                var titulo = doc.title ? doc.title : "Título desconocido";
+                var autor = doc.author_name ? doc.author_name.join(", ") : "Autor desconocido";
+                var descripcion = doc.description ? doc.description : "Sin descripción disponible";
+
+                var libro = { // Crear un objeto libro con los datos del documento
+                    titulo: titulo,
+                    autor: autor,
+                    descripcion: descripcion
+                };
+
+                var libroDiv = document.createElement("div");
+                libroDiv.classList.add("libro");
+                libroDiv.innerHTML = "<h3>" + titulo + "</h3>" +
+                    "<p>Autor: " + autor + "</p>" +
+                    "<p>Descripción: " + descripcion + "</p>";
+
+                var botonAgregarFavorito = document.createElement("button");
+                botonAgregarFavorito.textContent = "Agregar a favoritos";
+                botonAgregarFavorito.addEventListener("click", function () {
+                    Swal.fire({
+                        title: "¿Estás seguro que queres agregar a favoritos este libro?",
+                        icon: "question",
+                        showCancelButton: true,
+                        confirmButtonText: "Si, agregalo!",
+                        cancelButtonText: "No, me equioqué."
+                      }).then((result) => {
+                        if (result.isConfirmed) {
+                            agregarFavorito(libro);
+                            Swal.fire({
+                            title: "Perfecto, no fue agregado a favoritos.",
+                            icon: "success"
+                          });
+                        }
+                      });
+                });
+                libroDiv.appendChild(botonAgregarFavorito);
+
+                resultadosDiv.appendChild(libroDiv);
+            });
+        } else {
+            resultadosDiv.innerHTML = "<p>No se encontraron resultados.</p>";
+        }
+    }
+
+    document.getElementById("searchButton").addEventListener("click", function () {
+        buscarLibro();
+    });
+
+    document.getElementById("nuevoLibroForm").addEventListener("submit", function (event) {
+        event.preventDefault();
+        var titulo = document.getElementById("titulo").value;
+        var autor = document.getElementById("autor").value;
+        var descripcion = document.getElementById("descripcion").value;
+        var archivoPDF = document.getElementById("archivoPDF").files[0];
+
+        var nuevoLibro = { titulo: titulo, autor: autor, descripcion: descripcion, archivo_pdf: archivoPDF ? archivoPDF.name : "" };
+        libros.push(nuevoLibro);
+        guardarLibrosEnLocalStorage();
+        mostrarLibros();
+        subirPDF(archivoPDF);
+        document.getElementById("nuevoLibroForm").reset();
+    });
+
+    function mostrarLibros() {
+        var resultadosDiv = document.getElementById("resultados");
+        resultadosDiv.innerHTML = "";
+
+        libros.forEach((libro, index) => {
+            var libroDiv = document.createElement("div");
+            libroDiv.innerHTML = "<h3>" + libro.titulo + "</h3>" +
+                "<p>Autor: " + libro.autor + "</p>" +
+                "<p>Descripción: " + libro.descripcion + "</p>";
+
+            var botonAgregarFavorito = document.createElement("button");
+            botonAgregarFavorito.textContent = "Agregar a favoritos";
+            botonAgregarFavorito.addEventListener("click", function () {
+                
+                agregarFavorito(libro);
+            });
+            libroDiv.appendChild(botonAgregarFavorito);
+
+            resultadosDiv.appendChild(libroDiv);
+        });
+    }
+
+    function agregarFavorito(libro) {
+        var favoritos = JSON.parse(localStorage.getItem("favoritos")) || [];
+        favoritos.push(libro);
+        localStorage.setItem("favoritos", JSON.stringify(favoritos));
+        mostrarFavoritos();
+    }
+
+    function subirPDF(archivoPDF) { }
+
+    function mostrarFavoritos() {
+        var favoritos = JSON.parse(localStorage.getItem("favoritos")) || [];
+        var favoritosDiv = document.getElementById("favoritos");
+        favoritosDiv.innerHTML = "";
+
+        favoritos.forEach((libro, index) => {
+            if (libro) {
+                var libroDiv = document.createElement("div");
+                libroDiv.innerHTML = "<h3>" + libro.titulo + "</h3>" +
+                    "<p>Autor: " + libro.autor + "</p>" +
+                    "<p>Descripción: " + libro.descripcion + "</p>";
+
+                var botonEliminar = document.createElement("button");
+                botonEliminar.textContent = "Eliminar de favoritos";
+                botonEliminar.addEventListener("click", function () {
+                    Swal.fire({
+                        title: "¿Estás seguro que queres eliminar este libro de tu lista de favoritos?",
+                        icon: "question",
+                        showCancelButton: true,
+                        confirmButtonText: "Si, eliminalo.",
+                        cancelButtonText: "No, apreté sin querer."
+                      }).then((result) => {
+                        if (result.isConfirmed) {
+                          eliminarFavorito(index);
+                          Swal.fire({
+                            title: "¡Libro eliminado!",
+                            icon: "success"
+                          });
+                        }
+                      });
+                });
+
+                libroDiv.appendChild(botonEliminar);
+                favoritosDiv.appendChild(libroDiv);
+            }
+        });
+    }
+
+    cargarLibrosDesdeLocalStorage();
+    mostrarFavoritos();
 });
-
-// Función para mostrar los libros
-function mostrarLibros() {
-    var resultadosDiv = document.getElementById("resultados");
-    resultadosDiv.innerHTML = "";
-
-    for (var i = 0; i < libros.length; i++) {
-        var libroDiv = document.createElement("div");
-        libroDiv.innerHTML = "<h3>" + libros[i].titulo + "</h3>" +
-                            "<p>Autor: " + libros[i].autor + "</p>" +
-                            "<p>Descripción: " + libros[i].descripcion + "</p>" +
-                            "<button onclick='agregarFavorito(" + i + ")'>Agregar a favoritos</button>";
-        resultadosDiv.appendChild(libroDiv);
-    }
-}
-
-// Función para agregar un libro a la lista de favoritos
-function agregarFavorito(index) {
-    var favoritos = JSON.parse(localStorage.getItem("favoritos")) || [];
-    favoritos.push(libros[index]);
-    localStorage.setItem("favoritos", JSON.stringify(favoritos));
-    mostrarFavoritos();
-}
-
-// Función para subir el archivo PDF
-function subirPDF(archivoPDF) {}
-
-// Función para eliminar un libro de la lista de favoritos
-function eliminarFavorito(index) {
-    var favoritos = JSON.parse(localStorage.getItem("favoritos")) || [];
-    favoritos.splice(index, 1); // Elimina el libro en el índice dado
-    localStorage.setItem("favoritos", JSON.stringify(favoritos));
-    mostrarFavoritos();
-}
-
-// Función para mostrar los libros favoritos
-function mostrarFavoritos() {
-    var favoritos = JSON.parse(localStorage.getItem("favoritos")) || [];
-    var favoritosDiv = document.getElementById("favoritos");
-    favoritosDiv.innerHTML = "";
-
-    for (var i = 0; i < favoritos.length; i++) {
-        var libroDiv = document.createElement("div");
-        libroDiv.innerHTML = "<h3>" + favoritos[i].titulo + "</h3>" +
-                            "<p>Autor: " + favoritos[i].autor + "</p>" +
-                            "<p>Descripción: " + favoritos[i].descripcion + "</p>" +
-                            "<button onclick='eliminarFavorito(" + i + ")'>Eliminar de favoritos</button>";
-        favoritosDiv.appendChild(libroDiv);
-    }
-}
-
-// Llamar a la función para cargar los libros desde el almacenamiento local al iniciar la aplicación
-cargarLibrosDesdeLocalStorage();
-
-// Llamar a la función para mostrar los libros favoritos
-mostrarFavoritos();
